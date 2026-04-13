@@ -27,7 +27,7 @@ func (pw *ProgressWriter) Write(p []byte) (int, error) {
 	pw.written += int64(n)
 	if pw.total > 0 {
 		percent := float64(pw.written) / float64(pw.total) * 100
-		fmt.Printf("\r       🚀 Transferring: %.2f%% (%d/%d bytes)", percent, pw.written, pw.total)
+		fmt.Printf("\r        Transferring: %.2f%% (%d/%d bytes)", percent, pw.written, pw.total)
 	}
 	return n, err
 }
@@ -46,7 +46,7 @@ func getLocalIP() string {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: ./transfer <file1> <file2>")
+		fmt.Println("Usage: qfs <file1> <file2>")
 		return
 	}
 
@@ -85,7 +85,7 @@ func main() {
 
 	q, _ := qrcode.New(addr, qrcode.Low)
 	fmt.Println(q.ToSmallString(false))
-	fmt.Printf("\n🔗 Scan to download: %s\n", addr)
+	fmt.Printf("\nScan to download: %s\n", addr)
 	
 	sizeMode := "KB"
 	displaySize := float64(totalSize) / 1024
@@ -93,7 +93,7 @@ func main() {
 		displaySize /= 1024
 		sizeMode = "MB"
 	}
-	fmt.Printf("📊 Total Size: %.2f %s\n\n", displaySize, sizeMode)
+	fmt.Printf("Total Size: %.2f %s\n\n", displaySize, sizeMode)
 
 	// Use a pattern to match the random token
 	http.HandleFunc("/download/", func(w http.ResponseWriter, r *http.Request) {
@@ -130,7 +130,7 @@ func main() {
 			zw.Close()
 		}
 
-		fmt.Println("\n\n✅ Transfer Complete!")
+		fmt.Println("\n\nTransfer Complete!")
 		go func() { time.Sleep(1 * time.Second); os.Exit(0) }()
 	})
 

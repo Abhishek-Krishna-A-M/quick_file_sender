@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QFS - Terminal Transfer</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --term-green: #50fa7b;
+            --term-bg: #0a0a0a;
+            --term-dim: #6272a4;
+            --term-red: #ff5555;
+            --term-purp: #bd93f9;
+        }
+
+        *{ box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            background-color: var(--term-bg);
+            color: #f8f8f2;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 2rem;
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        /* Scanline effect */
+        body::before {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 10;
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+        }
+
+        .cli-wrapper { max-width: 800px; margin: 0 auto; position: relative; z-index: 1; }
+
+        .output-line { margin-bottom: 0.5rem; font-size: 14px; }
+        .prompt { color: var(--term-green); font-weight: bold; }
+        .path { color: var(--term-purp); }
+        
+        .section { margin: 1.5rem 0; }
+        .comment { color: var(--term-dim); font-style: italic; margin-bottom: 10px; display: block;}
+
+        /* Drop Zone Styles */
+        .drop-area {
+            border: 1px solid #333;
+            padding: 2rem;
+            position: relative;
+            text-align: center;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .drop-area:hover, .drop-area.over {
+            border-color: var(--term-green);
+            background: rgba(80, 250, 123, 0.05);
+        }
+        .drop-area input {
+            position: absolute; inset: 0; opacity: 0; cursor: pointer;
+        }
+
+        /* File List */
+        .file-list { margin: 1rem 0; }
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            background: rgba(255,255,255,0.03);
+            margin-bottom: 4px;
+            border-left: 2px solid var(--term-green);
+        }
+        .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .file-size { color: var(--term-dim); margin: 0 15px; font-size: 12px; }
+        .remove-btn {
+            color: var(--term-red);
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-family: inherit;
+            font-size: 12px;
+            padding: 2px 5px;
+        }
+        .remove-btn:hover { background: var(--term-red); color: white; }
+
+        /* Actions */
+        .btn-transfer {
+            background: var(--term-green);
+            color: var(--term-bg);
+            border: none;
+            padding: 8px 16px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            display: none; /* Shown only when files exist */
+        }
+        .btn-transfer:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        ::selection { background: var(--term-green); color: var(--term-bg); }
+    </style>
+</head>
+<body>
+
+<div class="cli-wrapper">
+    <div class="output-line">QFS Core Version STABLE</div>
+    <div class="output-line">System: Secure Uplink Active</div>
+    
+    <div class="section">
+        <span class="prompt">user@qfs</span>:<span class="path">~</span>$ <span class="comment"># Drag files below to stage for transfer</span>
+        
+        <div class="drop-area" id="dropZone">
+            <input type="file" id="fileInput" multiple>
+            <div>[ CLICK OR DRAG_FILES_HERE ]</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <span class="prompt">user@qfs</span>:<span class="path">~</span>$ ls --staged
+        <div class="file-list" id="fileList">
+            <div class="comment" style="padding-left: 10px;">(no files staged)</div>
+        </div>
+    </div>
+
+    <div id="transferSection">
+        <span class="prompt" id="actionPrompt" style="display:none">user@qfs</span>:<span class="path" id="actionPath" style="display:none">~</span>$ 
+        <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm">
+            <input type="file" name="myFiles" id="hiddenInput" multiple style="display:none">
+            <button type="submit" class="btn-transfer" id="submitBtn">./transfer_files.sh</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const fileListContainer = document.getElementById('fileList');
+    const submitBtn = document.getElementById('submitBtn');
+    const actionPrompt = document.getElementById('actionPrompt');
+    const actionPath = document.getElementById('actionPath');
+    const dropZone = document.getElementById('dropZone');
+    const hiddenInput = document.getElementById('hiddenInput');
+
+    // State: Array of File Objects
+    let stagedFiles = [];
+
+    function updateUI() {
+        // Clear container
+        fileListContainer.innerHTML = '';
+
+        if (stagedFiles.length === 0) {
+            fileListContainer.innerHTML = '<div class="comment" style="padding-left: 10px;">(no files staged)</div>';
+            submitBtn.style.display = 'none';
+            actionPrompt.style.display = 'none';
+            actionPath.style.display = 'none';
+            return;
+        }
+
+        // Show buttons
+        submitBtn.style.display = 'inline-block';
+        actionPrompt.style.display = 'inline-block';
+        actionPath.style.display = 'inline-block';
+
+        stagedFiles.forEach((file, index) => {
+            const row = document.createElement('div');
+            row.className = 'file-item';
+            
+            const size = file.size < 1048576 
+                ? (file.size / 1024).toFixed(1) + ' KB' 
+                : (file.size / 1048576).toFixed(1) + ' MB';
+
+            row.innerHTML = `
+                <span class="file-name">${file.name}</span>
+                <span class="file-size">${size}</span>
+                <button class="remove-btn" onclick="removeFile(${index})">[x]</button>
+            `;
+            fileListContainer.appendChild(row);
+        });
+    }
+
+    function addFiles(newList) {
+        // Convert FileList to Array and merge with existing
+        const filesArray = Array.from(newList);
+        
+        // Prevent duplicates by name & size (optional logic)
+        filesArray.forEach(f => {
+            const isDuplicate = stagedFiles.some(s => s.name === f.name && s.size === f.size);
+            if (!isDuplicate) stagedFiles.push(f);
+        });
+        
+        updateUI();
+    }
+
+    function removeFile(index) {
+        stagedFiles.splice(index, 1);
+        updateUI();
+    }
+
+    // Input Listeners
+    fileInput.addEventListener('change', (e) => {
+        addFiles(e.target.files);
+        e.target.value = ''; // Reset input so same file can be picked again
+    });
+
+    // Drag & Drop
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('over');
+    });
+
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('over');
+        if (e.dataTransfer.files.length) {
+            addFiles(e.dataTransfer.files);
+        }
+    });
+
+    // Final Submission
+    document.getElementById('uploadForm').addEventListener('submit', (e) => {
+        if (stagedFiles.length === 0) {
+            e.preventDefault();
+            return;
+        }
+
+        // Sync stagedFiles array back to the hidden file input
+        const dataTransfer = new DataTransfer();
+        stagedFiles.forEach(file => dataTransfer.items.add(file));
+        hiddenInput.files = dataTransfer.files;
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = './executing_uplink...';
+    });
+</script>
+
+</body>
+</html>

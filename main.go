@@ -1,6 +1,7 @@
 package main
 
 import (
+    _ "embed"
 	"archive/zip"
 	"flag"
 	"fmt"
@@ -22,28 +23,8 @@ type ProgressWriter struct {
 	total   int64
 }
 
-const uploadHTML = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f0f0f0; }
-        form { background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 80%; max-width: 400px; }
-        h2 { color: #333; margin-top: 0; }
-        input[type="file"] { margin-bottom: 1.5rem; width: 100%; }
-        input[type="submit"] { background: #007bff; color: white; border: none; padding: 0.75rem 1rem; border-radius: 5px; cursor: pointer; width: 100%; font-size: 1rem; }
-        input[type="submit"]:hover { background: #0056b3; }
-    </style>
-</head>
-<body>
-    <form action="/upload" method="post" enctype="multipart/form-data">
-        <h2>Upload to Terminal</h2>
-        <input type="file" name="myFiles" multiple required>
-        <input type="submit" value="Transfer to CLI">
-    </form>
-</body>
-</html>`
+//go:embed upload.html
+var uploadHTML string
 
 func (pw *ProgressWriter) Header() http.Header         { return pw.w.Header() }
 func (pw *ProgressWriter) WriteHeader(statusCode int) { pw.w.WriteHeader(statusCode) }

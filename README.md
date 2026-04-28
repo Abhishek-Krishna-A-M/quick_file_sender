@@ -89,5 +89,4 @@ Quick File Sender creates a temporary HTTP server on your local machine.
 ---
 
 ## 📝 License
-
 MIT License. Free to use, modify, and share.

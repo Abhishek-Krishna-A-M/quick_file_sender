@@ -12,6 +12,9 @@ No apps, no accounts, and no cloud uploads—just pure local Wi-Fi speed.
 - **Zero Mobile Setup:** No app required on the receiving end; uses the native mobile browser.
 - **Two-Way Transfer:** Send files to your phone *or* receive files from your phone — with a single flag.
 - **High Speed:** Uses Go's `http.ServeContent` for zero-copy data transfer and optimized throughput.
+- **Persistent Mode (-k):** Keep the server alive after a transfer to send or receive multiple batches without restarting.
+- **Custom Port (-p):** Default to 8080 for easy firewall whitelisting, or specify your own port.
+- **mDNS Support:** Provides a .local backup URL if your IP address changes.
 - **Smart Streaming:**
   - *Single Files:* Served raw for immediate use (e.g., PDFs, APKs, Images).
   - *Multiple Files/Folders:* Zipped on-the-fly and streamed—no waiting for compression to finish.
@@ -48,11 +51,22 @@ qfs document.pdf
 ```bash
 qfs photo1.jpg photo2.png ./my_folder
 ```
+### Send multiple files and keep the server open
+- Use -k if you want to scan and download files on multiple devices or do multiple rounds.
 
+```bash
+qfs -k photo1.jpg photo2.png ./my_folder
+```
 ### Receive files from your phone
 
 ```bash
 qfs -r /path/to/save/
+```
+
+### Receive files from your phone on a specific port
+
+```bash
+qfs -r -p 9000 /path/to/save/
 ```
 
 1. The CLI generates a **QR Code** in your terminal.
